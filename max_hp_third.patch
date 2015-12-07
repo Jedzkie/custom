@@ -1,0 +1,84 @@
+commit 94db07b4c179ed1445caecac6850580f3b6424f7
+Author: Jedzkie <jedzkie13@rocketmail.com>
+Date:   Mon Dec 7 12:03:50 2015 +0800
+
+    ...
+
+diff --git a/conf/battle/player.conf b/conf/battle/player.conf
+index 2682a34..f77e37d 100644
+--- a/conf/battle/player.conf
++++ b/conf/battle/player.conf
+@@ -78,6 +78,9 @@ max_walk_speed: 300
+ // Maximum HP. (Default is 1000000)
+ max_hp: 1000000
+ 
++// Same as max_hp, but for 3rd classes. (Default is 1500000)
++max_hp_third: 1500000
++
+ // Maximum SP. (Default is 1000000)
+ max_sp: 1000000
+ 
+diff --git a/src/map/battle.c b/src/map/battle.c
+index 7fbbcd0..25871f3 100644
+--- a/src/map/battle.c
++++ b/src/map/battle.c
+@@ -6875,6 +6875,7 @@ static const struct battle_data {
+ 	{ "max_lv",                             &battle_config.max_lv,                          99,     0,      MAX_LEVEL,      },
+ 	{ "aura_lv",                            &battle_config.aura_lv,                         99,     0,      INT_MAX,        },
+ 	{ "max_hp",                             &battle_config.max_hp,                          32500,  100,    1000000000,     },
++	{ "max_hp_third",                       &battle_config.max_hp_third,                    32500,  100,    1000000000,     },
+ 	{ "max_sp",                             &battle_config.max_sp,                          32500,  100,    1000000000,     },
+ 	{ "max_cart_weight",                    &battle_config.max_cart_weight,                 8000,   100,    1000000,        },
+ 	{ "max_parameter",                      &battle_config.max_parameter,                   99,     10,     10000,          },
+diff --git a/src/map/battle.h b/src/map/battle.h
+index 68a427e..952d081 100644
+--- a/src/map/battle.h
++++ b/src/map/battle.h
+@@ -512,6 +512,8 @@ struct Battle_Config {
+ 	int show_monster_hp_bar; // [Frost]
+ 
+ 	int fix_warp_hit_delay_abuse;
++	
++	int max_hp_third;
+ };
+ 
+ /* criteria for battle_config.idletime_critera */
+diff --git a/src/map/pc.c b/src/map/pc.c
+index 5ef0075..dbca617 100644
+--- a/src/map/pc.c
++++ b/src/map/pc.c
+@@ -8048,7 +8048,7 @@ int pc_setparam(struct map_session_data *sd,int type,int val)
+ 		sd->battle_status.hp = cap_value(val, 1, (int)sd->battle_status.max_hp);
+ 		break;
+ 	case SP_MAXHP:
+-		sd->battle_status.max_hp = cap_value(val, 1, battle_config.max_hp);
++		sd->battle_status.max_hp = cap_value(val, 1, ((sd->class_&JOBL_THIRD) ? (unsigned int)battle_config.max_hp_third : (unsigned int)battle_config.max_hp));
+ 
+ 		if( sd->battle_status.max_hp < sd->battle_status.hp )
+ 		{
+diff --git a/src/map/status.c b/src/map/status.c
+index 9062e72..f906a6b 100644
+--- a/src/map/status.c
++++ b/src/map/status.c
+@@ -2639,8 +2639,8 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt) {
+ 	if(battle_config.hp_rate != 100)
+ 		bstatus->max_hp = APPLY_RATE(bstatus->max_hp, battle_config.hp_rate);
+ 
+-	if(bstatus->max_hp > (unsigned int)battle_config.max_hp)
+-		bstatus->max_hp = battle_config.max_hp;
++	if(bstatus->max_hp > ((sd->class_&JOBL_THIRD) ? (unsigned int)battle_config.max_hp_third : (unsigned int)battle_config.max_hp))
++		bstatus->max_hp = ((sd->class_&JOBL_THIRD) ? battle_config.max_hp_third : battle_config.max_hp);
+ 	else if(!bstatus->max_hp)
+ 		bstatus->max_hp = 1;
+ 
+@@ -3689,8 +3689,8 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag) {
+ 
+ 			st->max_hp = status->calc_maxhp(bl, sc, st->max_hp);
+ 
+-			if( st->max_hp > (unsigned int)battle_config.max_hp )
+-				st->max_hp = (unsigned int)battle_config.max_hp;
++			if( st->max_hp > ((sd->class_&JOBL_THIRD) ? (unsigned int)battle_config.max_hp_third : (unsigned int)battle_config.max_hp) )
++				st->max_hp = ((sd->class_&JOBL_THIRD) ? (unsigned int)battle_config.max_hp_third : (unsigned int)battle_config.max_hp);
+ 		} else {
+ 			st->max_hp = status->calc_maxhp(bl, sc, bst->max_hp);
+ 		}
